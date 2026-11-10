@@ -5,7 +5,7 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 
-# Local artifacts that must not be published (see PUBLISH.md)
+# Local artifacts that must not be published (see README, "Reproducibility notes")
 out/
 build/
 dist/

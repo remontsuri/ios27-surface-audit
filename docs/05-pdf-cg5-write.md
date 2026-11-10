@@ -1,53 +1,50 @@
-# CoreGraphics type-5 shading — a write whose address is controlled and whose data is not
+# PDF type-5 shading — summary of the primitive
 
-**Status:** closed as a primitive; stays open as a denial of service.
-**Component:** CoreGraphics, `cg_shading_type5_draw` (PDF type-5/6/7 shading).
+| Field | Value |
+|---|---|
+| Component | CoreGraphics, `cg_shading_type5_draw` (PDF type-4/5/6/7 shading) |
+| Class | out-of-bounds write **and** out-of-bounds read |
+| Our status | **reproduced — partial**: address shaped by a double from the file, value fixed, no steering to a real mapping |
+| Build | iOS 27.0.1 (24A446), iPhone 14 (A15) |
+| Detail | [`docs/08`](08-pdf-shading-sites.md) — sites, statistics, emulator, limit |
 
-## Claim
+## In one paragraph
 
-Rendering a crafted PDF inside the system preview stack produces an out-of-bounds write to an
-address derived from the document's shading parameters. The address is attacker-influenced; the
-**data** written is a constant baked into the code (`0x3ff0000000000000` — the double `1.0`), not
-a value taken from the file.
+A malformed type-5 shading drives an index past the end of a coefficient array. Two sites fault:
+a write that stores **32-bit zero** at `bits(double) + 0x1c`, and a read that loads **16 bytes from
+`bits(double)`** and copies them into the shading output. The "double" is a value produced by the
+PDF shading function, so the address is file-influenced while the written data is constant. The
+address cannot be aimed at a real mapping, because a PDF real is bounded near 1e±38 and a kernel or
+low userland address is not representable — measured, not assumed (see `docs/08` §6).
 
-## How the write was found
+## What is and is not claimed
 
-A minimal PDF with a type-5 shading whose function dimension is larger than the number of
-components the parser expects drives an index past the end of a coefficient array. The store is
-a `str d2,[x14]` where `x14` comes from the shading mesh, and `d2` is the literal.
+* **Is:** a reproducible out-of-bounds access in a system rendering process, with the faulting
+  address derived from a value in the document, and a read whose result is placed in the renderer's
+  output.
+* **Is not:** a write of attacker-chosen data, or an access to an attacker-chosen real address.
 
-Cross-check: the address moved with the document parameters (that is what "controlled address"
-means here), but every observed fault carried the same data register content.
+An earlier version of this note described the write as `str d2,[x14]` with a constant `1.0`. That
+was a wrong model of the site; instruction-level reading plus an independent emulator replaced it
+with `str wzr,[x22,#0xc]`. The correction is recorded here on purpose: the earlier wording is what
+made the bug look closer to a primitive than it is.
 
-## The control experiment
+## Impact as it stands
 
-The decision hinged on whether the written value could be steered. Two documents were compared:
-one with `C0 = C1 = 2.0` and a control with default values. Both produced the same fault payload
-(`far = 0x3ff000000000001c`), and disassembly shows the constant loaded immediately before the
-store:
+Crashes in the system preview extension, reached by handing it a normal file. A userland denial of
+service in a system process; not a kernel primitive.
 
-```
-mov x25, #0x3ff0000000000000
-str d2,  [x14]
-```
+## The 27.2 difference
 
-So the payload is the code's own constant. A write of `1.0` to a semi-chosen address is a crash
-generator, not a memory-corruption primitive.
+27.2 adds a dimension check in the shading initialiser (`CG-SEC-187882049: invalid function for type
+5 shading`), so malformed shadings of this shape are rejected there. On 27.0.1 the check is absent.
 
-## Why the branch is still recorded as "closed"
+## Falsifiers
 
-Because the missing half — value control — has been looked for and not found: the shading
-evaluator computes coefficients from the document, but the value that reaches this particular
-store is the initialised constant. Until someone shows a document parameter that changes the
-stored data, the branch cannot progress.
+| To reopen the branch | What must be shown |
+|---|---|
+| write value | the stored value is not zero at the write site |
+| steering | a document makes the site fault at an address that is a real mapping |
+| leak | the 16 bytes read reach data the caller can read back |
 
-## Impact observed
-
-Crashes in the preview/thumbnail extensions (in-process to the system UI, not to the kernel),
-reproducible with a small PDF delivered as a file. That is a denial of service in a system
-process and is documented here mainly so it is not mistaken for a write primitive.
-
-## How to falsify this
-
-Produce two documents that differ only in a parameter and observe two different data values at
-the faulting store. Any dependence of `d2` on file content reopens the branch.
+The third one is the interesting one and has not been tested.

@@ -30,7 +30,6 @@ ALLOWLIST = {
     "tools/publish_scan.py",
     ".githooks/pre-commit",
     ".gitignore",
-    "PUBLISH.md",
 }
 
 BINARY_EXT = {
