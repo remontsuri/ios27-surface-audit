@@ -1,0 +1,95 @@
+AVEARR3 create=0 ctrl_ntl2=0
+AVEARR3 create=0 ctrl_ntl2=0
+A_normal n=9 set=-12900
+AVEARR3 create=0 ctrl_ntl2=0
+A_normal n=9 set=-12900
+A_normal n=10 set=-12900
+AVEARR3 create=0 ctrl_ntl2=0
+A_normal n=9 set=-12900
+A_normal n=10 set=-12900
+A_normal n=12 set=-12900
+AVEARR3 create=0 ctrl_ntl2=0
+A_normal n=9 set=-12900
+A_normal n=10 set=-12900
+A_normal n=12 set=-12900
+A_normal n=16 set=-12900
+AVEARR3 create=0 ctrl_ntl2=0
+A_normal n=9 set=-12900
+A_normal n=10 set=-12900
+A_normal n=12 set=-12900
+A_normal n=16 set=-12900
+B_hi63 n=8 set=-12900
+AVEARR3 create=0 ctrl_ntl2=0
+A_normal n=9 set=-12900
+A_normal n=10 set=-12900
+A_normal n=12 set=-12900
+A_normal n=16 set=-12900
+B_hi63 n=8 set=-12900
+B_normal n=8 set=-12900
+AVEARR3 create=0 ctrl_ntl2=0
+A_normal n=9 set=-12900
+A_normal n=10 set=-12900
+A_normal n=12 set=-12900
+A_normal n=16 set=-12900
+B_hi63 n=8 set=-12900
+B_normal n=8 set=-12900
+B_hi300 n=8 set=-12900
+AVEARR3 create=0 ctrl_ntl2=0
+A_normal n=9 set=-12900
+A_normal n=10 set=-12900
+A_normal n=12 set=-12900
+A_normal n=16 set=-12900
+B_hi63 n=8 set=-12900
+B_normal n=8 set=-12900
+B_hi300 n=8 set=-12900
+B_negative n=8 set=-12900
+AVEARR3 create=0 ctrl_ntl2=0
+A_normal n=9 set=-12900
+A_normal n=10 set=-12900
+A_normal n=12 set=-12900
+A_normal n=16 set=-12900
+B_hi63 n=8 set=-12900
+B_normal n=8 set=-12900
+B_hi300 n=8 set=-12900
+B_negative n=8 set=-12900
+C_pxbuf=0
+C_pre_set n=8 set=-12900
+AVEARR3 create=0 ctrl_ntl2=0
+A_normal n=9 set=-12900
+A_normal n=10 set=-12900
+A_normal n=12 set=-12900
+A_normal n=16 set=-12900
+B_hi63 n=8 set=-12900
+B_normal n=8 set=-12900
+B_hi300 n=8 set=-12900
+B_negative n=8 set=-12900
+C_pxbuf=0
+C_pre_set n=8 set=-12900
+C_enc0=0 flags=1
+AVEARR3 create=0 ctrl_ntl2=0
+A_normal n=9 set=-12900
+A_normal n=10 set=-12900
+A_normal n=12 set=-12900
+A_normal n=16 set=-12900
+B_hi63 n=8 set=-12900
+B_normal n=8 set=-12900
+B_hi300 n=8 set=-12900
+B_negative n=8 set=-12900
+C_pxbuf=0
+C_pre_set n=8 set=-12900
+C_enc0=0 flags=1
+C_enc1=0 flags=1
+AVEARR3 create=0 ctrl_ntl2=0
+A_normal n=9 set=-12900
+A_normal n=10 set=-12900
+A_normal n=12 set=-12900
+A_normal n=16 set=-12900
+B_hi63 n=8 set=-12900
+B_normal n=8 set=-12900
+B_hi300 n=8 set=-12900
+B_negative n=8 set=-12900
+C_pxbuf=0
+C_pre_set n=8 set=-12900
+C_enc0=0 flags=1
+C_enc1=0 flags=1
+C_enc2=0 flags=1

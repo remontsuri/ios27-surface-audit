@@ -1,0 +1,11 @@
+MediaLibrary.sqlitedb: VENDED fd=3 size=24592 mode=0300644 dir=0 obj=168637595910996737 pid=0 direct_open_errno=1
+PlayCounts.plist: VENDED fd=3 size=8 mode=0300644 dir=0 obj=168637595910996993 pid=0 direct_open_errno=1
+iTunes_dir: VENDED fd=3 size=0 mode=0640755 dir=1 obj=168637595910997249 pid=0 direct_open_errno=1
+TRAV keychain: refused code=-12203 direct_open_errno=1
+TRAV TCC (3up): refused code=-12203 direct_open_errno=1
+TRAV sms (3up): refused code=-12203 direct_open_errno=1
+TRAV Library (3up): refused code=-12203 direct_open_errno=1
+TRAV AppContainer: refused code=-17913 direct_open_errno=1
+SystemVersion.plist: VENDED fd=3 size=8 mode=0300444 dir=0 obj=168637595910997505 pid=0 direct_open_errno=0
+Preferences/.GlobalPreferences.plist: VENDED fd=3 size=48 mode=0300600 dir=0 obj=168637595910997761 pid=0 direct_open_errno=0
+METRIC|L_s1_fdleak_xsandbox|fd for file we cannot open()|vended=5 denied=10 bytes_read=24656 est=1|ESCAPE
