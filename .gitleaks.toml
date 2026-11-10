@@ -1,0 +1,12 @@
+# gitleaks configuration.
+# The scanner's own rule table contains key-shaped patterns by design; scanning it would
+# report itself. Everything else is scanned normally.
+title = "ios27-surface-audit"
+
+[allowlist]
+paths = [
+  '''tools/publish_scan\.py''',
+  '''tests/test_publish_scan\.py''',
+  '''\.pre-commit-config\.yaml''',
+  '''\.gitleaks\.toml''',
+]

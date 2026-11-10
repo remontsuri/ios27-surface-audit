@@ -1,0 +1,45 @@
+# Pre-commit configuration for this repository.
+#
+# Composed from maintained upstream hook collections rather than hand-written checks:
+#   * pre-commit-hooks v6.0.0  - file hygiene, YAML validity, private keys, large files
+#   * gitleaks v8.30.1         - secret detection (same engine GitHub push protection uses)
+#   * local kc27-publish-scan  - this project's rules: device identifiers, operator identity,
+#                                absolute host paths, and English-only published documents
+#
+# Install once per clone:
+#   pip install pre-commit
+#   pre-commit install
+# Run against everything:
+#   pre-commit run --all-files
+
+default_stages: [pre-commit]
+fail_fast: false
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: check-added-large-files
+        args: [--maxkb=1024]
+      - id: detect-private-key
+      - id: mixed-line-ending
+        args: [--fix=lf]
+
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+      - id: gitleaks
+
+  - repo: local
+    hooks:
+      - id: kc27-publish-scan
+        name: kc27 publish scan (device ids, operator identity, host paths, English only)
+        entry: python tools/publish_scan.py --staged
+        language: system
+        pass_filenames: false

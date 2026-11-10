@@ -24,7 +24,7 @@ Status vocabulary:
 | [CVE-2026-112688](cves/112688.md) | CoreMedia DV-RPU | OOB write (stack) | **reproduced — partial** (write yes, delivery no) | [cves/112688](cves/112688.md) |
 | [CVE-2026-112705](cves/112705.md) | AppleAVE2 | missing bound → panic | **reproduced — DoS** | [docs/03](docs/03-ave2-temporal-layers.md) |
 | [CVE-2026-112611](cves/112611.md) | CoreGraphics type-5 shading | OOB write + OOB read | **reproduced — partial** (address shaped by a double, value zero, not steerable) | [docs/08](docs/08-pdf-shading-sites.md) |
-| [CVE-2026-86950](cves/86950.md) | CoreGraphics | OOB write | **reproduced — DoS** (crash, no primitive) | [cves/86950](cves/86950.md) |
+| [CVE-2026-86950](cves/86950.md) | CoreGraphics | OOB write | **reproduced — DoS** (crash, no primitive) | [cves/86950](cves/86950.md) · [docs/10](docs/10-imageio-tiff-planar.md) (adjacent decode-path branch) |
 | [CVE-2026-113910](cves/113910.md) | kernel Compression (decmpfs) | kernel memory disclosure | **measured — denied** | [cves/113910](cves/113910.md) |
 | [CVE-2026-112665](cves/112665.md) | kernel | KASLR / layout disclosure | **documented only** (no PoC to test) | [cves/112665](cves/112665.md) |
 | [CVE-2026-28992](cves/28992.md) | IOHIDFamily FastPath | privileged user client | **measured — unreachable** | [cves/28992](cves/28992.md) |

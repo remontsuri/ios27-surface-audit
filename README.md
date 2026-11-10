@@ -30,7 +30,8 @@ achieves kernel read/write.
 | CoreMedia bytestream sandbox escape (CVE-2026-112706) | read-only whitelist | [docs/02](docs/02-bytestream-112706.md) |
 | AppleAVE2 temporal-layer / auxiliary-layer IDs | rejected before the kernel | [docs/03](docs/03-ave2-temporal-layers.md) |
 | `rtm_scrub` / `dlil_ifaddr_bytes` info leak | unreachable (precondition fails) | [docs/04](docs/04-rtm-scrub-infoleak.md) |
-| CoreGraphics type-5 shading (CVE-2026-112611) | address shaped by a double from the file, value fixed, not steerable | [docs/05](docs/05-pdf-cg5-write.md) · [docs/08](docs/08-pdf-shading-sites.md) |
+| CoreGraphics type-5 shading (CVE-2026-112611) | address shaped by a double from the file, value fixed, not steerable | [docs/05](docs/05-pdf-cg5-write.md) · [docs/08](docs/08-pdf-shading-sites.md) · [docs/09](docs/09-cg-shading-r136-fixture.md) |
+| ImageIO planar TIFF decode | check absent on 24A446, no file-driven trigger found | [docs/10](docs/10-imageio-tiff-planar.md) |
 | MobileGestalt cache, `bad_query` class 13 | userland / out of window | [docs/06](docs/06-mobilegestalt-and-userland-paths.md) |
 | QEMU guest, Cinder27, SPTM DART | not viable as entry points | [docs/07](docs/07-platform-limits.md) |
 
