@@ -1,13 +1,13 @@
-/* probe_avearr3.c — третья волна: HEVCAuxiliaryLayerIDs.
+/* probe_avearr3.c - third wave: HEVCAuxiliaryLayerIDs.
  *
- * Вопросы:
- *  1) где граница количества (вторая проба: 8 — да, 17 — нет);
- *  2) валидируются ли ЗНАЧЕНИЯ (в 27.2 добавлено "layer_id_in_nuh is out of range");
- *  3) доходит ли это до AVE2 при реальном кодировании (set=0 этого не доказывает).
+ * Questions:
+ *  1) where the count boundary is (second probe: 8 yes, 17 no);
+ *  2) whether the VALUES are validated (27.2 added "layer_id_in_nuh is out of range");
+ *  3) whether any of it reaches AVE2 during a real encode (set=0 does not prove that).
  *
- * Поэтому: фаза A — размеры 9/10/12/16, фаза B — 8 элементов с значениями вне
- * диапазона, фаза C — настоящее кодирование кадра 640x480 BGRA.
- * Лог пишется инкрементально, чтобы при панике демона было видно, на каком шаге.
+ * So: phase A - sizes 9/10/12/16, phase B - 8 entries with out-of-range values,
+ * phase C - a real 640x480 BGRA frame encode.
+ * The log is written incrementally so a daemon panic shows which step was running.
  */
 #include "kc_report.h"
 
@@ -107,7 +107,7 @@ int main(int argc, char **argv)
     put(out, sizeof out, &k, " ctrl_ntl2="); putnum(out, sizeof out, &k, c);
     out[k] = 0; kc_log("avearr3.log", out);
 
-    /* --- фаза A: где граница количества --- */
+    /* --- phase A: where the count boundary is --- */
     {
         static const int sizes[] = {9, 10, 12, 16};
         for (i = 0; i < (int)(sizeof sizes / sizeof sizes[0]); i++) {
@@ -117,7 +117,7 @@ int main(int argc, char **argv)
         }
     }
 
-    /* --- фаза B: значения вне диапазона при n=8 --- */
+    /* --- phase B: out-of-range values at n=8 --- */
     {
         static const int bad1[8] = {63, 64, 200, 255, 63, 63, 63, 63};
         static const int bad2[8] = {0, 1, 2, 3, 4, 5, 6, 7};
@@ -129,7 +129,7 @@ int main(int argc, char **argv)
         note("B_negative", 8, set_ids(bad4, 8));
     }
 
-    /* --- фаза C: реальное кодирование, чтобы значение дошло до AVE2 --- */
+    /* --- phase C: real encoding so the value reaches AVE2 --- */
     if (CV) {
         size_t_ (*pxcreate)(CFAllocatorRef, size_t_, size_t_, uint32_t_, CFDictionaryRef, CVPixelBufferRef *) =
             (size_t_ (*)(CFAllocatorRef, size_t_, size_t_, uint32_t_, CFDictionaryRef, CVPixelBufferRef *))
@@ -159,7 +159,7 @@ int main(int argc, char **argv)
             if (p) { for (i = 0; i < (int)(rows * 480); i++) p[i] = (unsigned char)0x80; }
             if (unlock) unlock(pb, 0);
 
-            /* выставляем 8 нормальных ID и кодируем три кадра */
+            /* set 8 normal IDs and encode three frames */
             for (n = 0; n < 8; n++) vals[n] = n;
             note("C_pre_set", 8, set_ids(vals, 8));
 

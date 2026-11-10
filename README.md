@@ -36,6 +36,9 @@ achieves kernel read/write.
 
 Open branches and their stop conditions are in [`ROADMAP.md`](ROADMAP.md).
 
+Every CVE this audit touched — including the ones that turned out useless — is listed in
+[`CVES.md`](CVES.md) with the status of *our* measurement and the falsifier that would change it.
+
 ## Method
 
 1. **Start from reachability, not from a bug.** A defect that cannot be reached from a
@@ -68,9 +71,14 @@ installed over a USB multiplexer relay; that infrastructure is intentionally not
 
 ```
 README.md      this file
+CVES.md        register: every CVE touched, with our measurement status and falsifier
 ROADMAP.md     open branches, stop conditions, kill criteria
+cves/          one file per CVE we measured: what we saw, why the status is what it is
 docs/          one file per branch: claim, method, evidence, falsification
-tools/         gate.py (closure gate), publish_scan.py (pre-publication scanner)
+evidence/      sanitized measurement logs the claims rest on
+probes/        on-device probe sources that produced the evidence
+tools/         gate.py (closure gate), sanitize_evidence.py, publish_scan.py, verdict parsers
+tests/         tests for the verdict parsers
 ```
 
 ## A note on what "closed" means here

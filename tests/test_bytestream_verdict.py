@@ -1,5 +1,5 @@
-"""Тесты классификатора bytestream-пробы. Значения — из errno-констант Darwin и
-измеренных кодов сервера, а не из вывода SUT (gutcheck IRON LAW)."""
+"""Tests for the bytestream probe classifier. Expected values come from Darwin errno
+constants and measured server codes, not from the output of the code under test."""
 import os
 import sys
 
@@ -35,13 +35,13 @@ def test_open_class_other_code_is_unknown():
 
 
 def test_open_class_eexist_means_write_path_accepted():
-    # code=17 (EEXIST) сервер отдал на O_CREAT|O_WRONLY: путь открывался, файл уже был
+    # code=17 (EEXIST) was returned for O_CREAT|O_WRONLY: the path opened, the file existed
     assert open_class(17) == "exists"
 
 
 def test_open_class_app_container_deny():
-    # -17913 = пути НЕТ (оракул существования), а не «контейнер запрещён»:
-    # так помечен TRAV AppContainer в логе 03.11 — путь с неверным числом ../ не существовал
+    # -17913 means the path is ABSENT (existence oracle), not "container forbidden":
+    # the AppContainer traversal carried a wrong number of ../ levels and did not exist
     assert open_class(-17913) == "no_such_file"
 
 
@@ -88,7 +88,7 @@ def test_access_mode_bits_from_fcntl():
 
 
 def test_access_mode_ignores_high_flags():
-    # O_APPEND=0x8 поверх O_WRONLY
+    # O_APPEND=0x8 on top of O_WRONLY
     assert access_mode(0x0009) == "wronly"
 
 

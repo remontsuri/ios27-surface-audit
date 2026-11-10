@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
-"""Тесты к tools/ave2_checks.py — на реальных строках логов проб AveArr 1..3.
+"""Tests for tools/ave2_checks.py - built on real log lines from probes AveArr 1..3.
 
-Логи встроены литералами, а не читаются из out/live/: staging-копия для
-мутационной пробы не включает каталог out/, и тест, читающий файл, там падал бы.
+The logs are embedded as literals rather than read from a local output directory: a
+mutation-probe staging copy does not carry that directory, and a test that reads a file
+would fail there.
 """
 
 import os
@@ -22,7 +23,7 @@ from tools.ave2_checks import (
     vector_closed,
 )
 
-# --- реальные строки из out/live/probe_avearr3_device.log (12 503 -> 2 410 Б) ---
+# --- real lines from the phase-A/B/C run of probe_avearr3 ---
 LOG3 = """AVEARR3 create=0 ctrl_ntl2=0
 A_normal n=9 set=-12900
 A_normal n=10 set=-12900
@@ -38,7 +39,7 @@ C_enc1=0 flags=1
 C_enc2=0 flags=1
 """
 
-# --- реальные строки из out/live/probe_avearr2_device.log ---
+# --- real lines from the capacity sweep of probe_avearr2 ---
 LOG2 = """HEVCAuxiliaryIDs n=1 set=0
 HEVCAuxiliaryIDs n=2 set=0
 HEVCAuxiliaryIDs n=3 set=0

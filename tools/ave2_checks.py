@@ -1,35 +1,35 @@
 # -*- coding: utf-8 -*-
-"""ave2_checks — интерпретация измерений по клиентским массивам AVE2.
+"""ave2_checks - interpretation rules for the AVE2 client-array measurements.
 
-Здесь нет разбора бинарей: модуль кодирует ПРАВИЛА чтения логов проб
-`ProbeAveArr*` и один статический факт (ёмкость aux-массива), чтобы выводы
-были проверяемы тестами и мутационной пробой, а не пересказом.
+No binary parsing here: the module encodes how the `ProbeAveArr*` logs must be read,
+plus one static fact (the aux array capacity), so that the conclusions can be checked
+by tests and by a mutation probe instead of by prose.
 
-Статический факт (24A446, `AppleAVE2`, функция 0xfffffff0084e4080):
-    add  x22, x19, #0x55c          ; база массива
-    ldr  w9, [x22, x20, lsl #2]    ; элемент 4 байта, индекс x20
-    ldrsw x8, [x19, #0x558]        ; счётчик
-    ldr  w8, [x19, #0x57c]         ; следующее поле сразу за массивом
-    => +0x55c .. +0x57b = 0x20 = 8 элементов по 4 байта
+Static fact (build 24A446, `AppleAVE2`, function 0xfffffff0084e4080):
+    add  x22, x19, #0x55c          ; array base
+    ldr  w9, [x22, x20, lsl #2]    ; 4-byte element, index x20
+    ldrsw x8, [x19, #0x558]        ; client counter
+    ldr  w8, [x19, #0x57c]         ; the field immediately after the array
+    => +0x55c .. +0x57b = 0x20 = 8 elements of 4 bytes
 """
 
 import re
 
-#: Ёмкость массива auxiliary layer id в структуре AVE2 (из дизассемблера, см. docstring).
+#: Capacity of the auxiliary-layer-id array in the AVE2 structure (disassembly above).
 AUX_CAPACITY = 8
 
-#: Строка замера: "<tag> n=<int> set=<int>"
+#: Measurement line: "<tag> n=<int> set=<int>"
 _SET_RE = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)\s+n=(\d+)\s+set=(-?\d+)\s*$")
 
-#: Строка кодирования: "C_enc<idx>=<status> flags=<flags>"
+#: Encode line: "C_enc<idx>=<status> flags=<flags>"
 _ENC_RE = re.compile(r"^C_enc(\d+)=(-?\d+)\s+flags=(-?\d+)\s*$")
 
 
 def parse_sets(text):
-    """Все замеры свойств из текста лога -> множество (tag, n, status).
+    """Every property measurement in the log text -> set of (tag, n, status).
 
-    Дубликаты схлопываются: проба пишет лог инкрементально, поэтому одна и та же
-    строка встречается много раз.
+    Duplicates collapse: the probe writes the log incrementally, so the same line
+    appears many times.
     """
     rows = set()
     for line in text.splitlines():
@@ -40,7 +40,7 @@ def parse_sets(text):
 
 
 def parse_encode(text):
-    """Замеры кодирования -> {index: (status, flags)}."""
+    """Encode measurements -> {index: (status, flags)}."""
     out = {}
     for line in text.splitlines():
         m = _ENC_RE.match(line.strip())
@@ -50,12 +50,12 @@ def parse_encode(text):
 
 
 def accepted(status):
-    """Принято ли свойство: OSStatus 0."""
+    """Was the property accepted: OSStatus 0."""
     return status == 0
 
 
 def max_accepted_n(rows, tag):
-    """Наибольший принятый размер массива для данного tag (0 — ни один)."""
+    """Largest accepted array size for this tag (0 - none)."""
     best = 0
     for t, n, st in rows:
         if t == tag and accepted(st) and n > best:
@@ -64,7 +64,7 @@ def max_accepted_n(rows, tag):
 
 
 def min_rejected_n(rows, tag):
-    """Наименьший отбитый размер массива для данного tag (0 — таких нет)."""
+    """Smallest rejected array size for this tag (0 - none rejected)."""
     best = 0
     for t, n, st in rows:
         if t == tag and not accepted(st):
@@ -74,18 +74,18 @@ def min_rejected_n(rows, tag):
 
 
 def aux_capacity():
-    """Ёмкость массива auxiliary layer id в AVE2."""
+    """Capacity of the auxiliary-layer-id array in AVE2."""
     return AUX_CAPACITY
 
 
 def overflow_reachable(max_n, capacity=None):
-    """Достижимо ли переполнение: принятый размер больше ёмкости."""
+    """Is the overflow reachable: accepted size greater than the capacity."""
     cap = AUX_CAPACITY if capacity is None else capacity
     return max_n > cap
 
 
 def encode_ok(enc):
-    """Все ли кадры ушли в энкодер (status 0 и флаг «кадр выдан» = 1)."""
+    """Did every frame reach the encoder (status 0 and the "frame emitted" flag = 1)."""
     if not enc:
         return False
     for status, flags in enc.values():
@@ -97,5 +97,5 @@ def encode_ok(enc):
 
 
 def vector_closed(rows, tag):
-    """Закрыт ли вектор: VT не принимает размер больше ёмкости AVE2."""
+    """Is the vector closed: VideoToolbox never accepts a size above the AVE2 capacity."""
     return not overflow_reachable(max_accepted_n(rows, tag))

