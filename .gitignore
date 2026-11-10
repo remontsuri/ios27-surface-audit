@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local artifacts that must not be published (see PUBLISH.md)
+out/
+build/
+dist/
+*.log
+!evidence/*.log
+
+# Generated gate output
+gates*.json
+
+# Editor / OS noise
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

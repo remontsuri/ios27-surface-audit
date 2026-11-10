@@ -1,0 +1,67 @@
+#!/bin/sh
+# Pre-commit gate for the public repository.
+#   1. forbidden paths / extensions (local artifacts, signing material, secrets)
+#   2. files above 2 MB
+#   3. secrets and personal data (tools/publish_scan.py)
+#   4. every published document must be English (no Cyrillic)
+#
+# Bypass with intent only: git commit --no-verify
+
+set -e
+root=$(git rev-parse --show-toplevel)
+cd "$root"
+
+staged=$(git diff --cached --name-only --diff-filter=ACMR)
+[ -z "$staged" ] && exit 0
+
+fail=0
+say() { printf '%s\n' "$*"; }
+
+forbidden='^(out|logs|build|dist|ipsw[0-9]*|kc[0-9]+)/'
+forbidden_ext='\.(ipsw|dmg|img|bin|zst|p12|mobileprovision|pem|key|keystore|arm64e|ipa|o|a|so|dylib)$'
+forbidden_name='^(kernelcache|agent_token)|\.env$'
+
+for f in $staged; do
+  if printf '%s' "$f" | grep -Eq "$forbidden" \
+     || printf '%s' "$f" | grep -Eq "$forbidden_ext" \
+     || printf '%s' "$f" | grep -Eq "$forbidden_name"; then
+    say "BLOCK path: $f"
+    fail=1
+  fi
+done
+
+for f in $staged; do
+  [ -f "$f" ] || continue
+  size=$(wc -c < "$f" | tr -d ' ')
+  if [ "$size" -gt 2097152 ]; then
+    say "BLOCK size: $f (${size} bytes > 2 MB)"
+    fail=1
+  fi
+done
+
+py=""
+for candidate in python3 python py; do
+  if command -v "$candidate" >/dev/null 2>&1; then py="$candidate"; break; fi
+done
+
+if [ -n "$py" ]; then
+  scan_out=$("$py" tools/publish_scan.py --staged 2>&1) || {
+    printf '%s\n' "$scan_out"
+    fail=1
+  }
+else
+  say "WARN: no python found - secret scan skipped"
+fi
+
+# --- 4. language check lives in tools/publish_scan.py -------------------
+# Rationale: a shell grep under LC_ALL=C matches bytes, not letters, and reports
+# false positives on typographic dashes. The scanner reads the file as UTF-8.
+
+if [ "$fail" -ne 0 ]; then
+  say ""
+  say "commit blocked. Fix the lines above, or use 'git commit --no-verify' with intent."
+  exit 1
+fi
+
+say "pre-commit: clean"
+exit 0

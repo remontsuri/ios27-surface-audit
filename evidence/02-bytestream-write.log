@@ -1,0 +1,13 @@
+W|ctl_rdonly|own|opts=0x0|direct_errno=0|REFUSED code=-12203
+W|own_wronly|own|opts=0xa01|direct_errno=2|REFUSED code=-12878
+W|var_tmp|tmp|opts=0xa01|direct_errno=2|REFUSED code=-12878
+W|media_root|media|opts=0xa01|direct_errno=1|REFUSED code=-12878
+W|itunes_dir|media|opts=0xa01|direct_errno=1|REFUSED code=-12878
+W|prefs_dir|system|opts=0xa01|direct_errno=2|REFUSED code=-12878
+W|etc_dir|root|opts=0xa01|direct_errno=2|REFUSED code=-12878
+W|mlib_rdwr|media|opts=0x2|direct_errno=1|REFUSED code=-12878
+W|mlib_rdonly|media|opts=0x0|direct_errno=1|fd=3|fl=0x0|wr=-1|w_errno=0|size=24592
+W|cache_mpd|system|opts=0xa01|direct_errno=2|REFUSED code=-12878
+W|db_copy|media|opts=0xa01|direct_errno=1|REFUSED code=-12878
+W|mlib_copy|media|opts=0xa01|direct_errno=1|REFUSED code=-12878
+METRIC|L_s2c_fdwrite|write through bytestream|vended=1 write_attempted=0 write_ok=0 est=1|WRITE_DENIED
