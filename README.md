@@ -64,6 +64,14 @@ here; obtain them from your own device or your own IPSW. `tools/gate.py` documen
 mechanism used to keep closures honest — it reports `SKIP` when the local artifact is absent,
 which is the correct answer for a reader without the same binaries.
 
+What can be run directly from this repository:
+
+```sh
+python tools/gate.py        # re-checks the closures against the published evidence
+python -m pytest            # 42 tests over the verdict parsers
+python tools/publish_scan.py --all   # the pre-publication scanner used on this tree
+```
+
 Probe apps used on the device were signed with a personal development certificate and
 installed over a USB multiplexer relay; that infrastructure is intentionally not included.
 
