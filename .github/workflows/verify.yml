@@ -1,0 +1,59 @@
+name: verify
+
+# Runs exactly the three commands a reader of this repository would run, on a clean
+# machine: the closure gates, the published tests, and the leak scan that blocks
+# secrets and personal data from this tree. Each command is its own step, so a
+# nonzero exit fails the job (the default shell is `bash -e`, and a failing step
+# stops the job).
+#
+# No secrets, no matrix, no cache: the only dependency is pytest, installed from
+# the public index. Everything else is the Python standard library.
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: gates, tests, leak scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Install Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install the test runner
+        run: python -m pip install --disable-pip-version-check --no-input pytest
+
+      # A reader's first command. Must print TOTAL fail=0 and exit 0.
+      # Any FAIL means the published evidence no longer supports a written closure.
+      - name: Closure gates
+        env:
+          PYTHONPATH: ""
+          PYTHONUTF8: "1"
+        run: python tools/gate.py
+
+      # A reader's second command. Includes the scanner tests themselves.
+      - name: Published tests
+        env:
+          PYTHONPATH: ""
+          PYTHONUTF8: "1"
+        run: python -m pytest
+
+      # A reader's third command, and the gate that protects the tree itself:
+      # secrets, device identifiers, operator paths and non-English documents.
+      - name: Leak scan
+        env:
+          PYTHONPATH: ""
+          PYTHONUTF8: "1"
+        run: python tools/publish_scan.py --all
